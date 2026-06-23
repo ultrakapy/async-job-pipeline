@@ -1,0 +1,24 @@
+name: async-job-pipeline
+services:
+  - name: api
+    github:
+      repo: ultrakapy/async-job-pipeline
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 5
+    envs:
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+      - key: WORKER_COUNT
+        scope: RUN_TIME
+        value: "4"
+      - key: QUEUE_CAPACITY
+        scope: RUN_TIME
+        value: "1000"
+    instance_count: 1
+    instance_size_slug: basic-xxs
