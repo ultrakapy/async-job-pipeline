@@ -24,8 +24,8 @@ func newTestServer(t *testing.T) (*httptest.Server, func()) {
 	t.Helper()
 	st := store.New()
 	q := queue.New(100)
-	pool := worker.NewPool(2, q, st, successHandler)
-	h := api.NewHandler(st, q)
+	pool := worker.NewPool(2, q, st, store.NewDeadLetterStore(), successHandler)
+	h := api.NewHandler(st, q, store.NewDeadLetterStore())
 	pool.Start()
 	ts := httptest.NewServer(api.NewRouter(h))
 	return ts, func() { ts.Close(); pool.Stop() }
@@ -71,7 +71,7 @@ func TestSubmitAndPoll(t *testing.T) {
 func TestQueueDepthAndDrain(t *testing.T) {
 	st := store.New()
 	q := queue.New(100)
-	ts := httptest.NewServer(api.NewRouter(api.NewHandler(st, q)))
+	ts := httptest.NewServer(api.NewRouter(api.NewHandler(st, q, store.NewDeadLetterStore())))
 	defer ts.Close()
 
 	for i := 0; i < 3; i++ {
@@ -97,7 +97,7 @@ func TestQueueDepthAndDrain(t *testing.T) {
 func TestCancelJob(t *testing.T) {
 	st := store.New()
 	q := queue.New(100)
-	ts := httptest.NewServer(api.NewRouter(api.NewHandler(st, q)))
+	ts := httptest.NewServer(api.NewRouter(api.NewHandler(st, q, store.NewDeadLetterStore())))
 	defer ts.Close()
 
 	resp := post(t, ts.URL+"/api/v1/jobs", `{"payload":{},"max_retries":1,"timeout_secs":5}`)

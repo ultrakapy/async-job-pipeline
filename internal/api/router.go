@@ -10,6 +10,7 @@ func NewRouter(h *Handler) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/jobs/{id}", h.CancelJob)
 	mux.HandleFunc("GET /api/v1/queue/depth", h.QueueDepth)
 	mux.HandleFunc("POST /api/v1/queue/drain", h.DrainQueue)
+	mux.HandleFunc("GET /api/v1/dead-letter", h.GetDeadLetterJobs)
 	mux.HandleFunc("GET /healthz", h.Health)
 	return mux
 }

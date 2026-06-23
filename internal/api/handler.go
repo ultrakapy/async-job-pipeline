@@ -14,12 +14,13 @@ import (
 )
 
 type Handler struct {
-	store store.Store
-	queue queue.Queue
+	store   store.Store
+	queue   queue.Queue
+	dlStore store.DeadLetterStore
 }
 
-func NewHandler(s store.Store, q queue.Queue) *Handler {
-	return &Handler{store: s, queue: q}
+func NewHandler(s store.Store, q queue.Queue, dl store.DeadLetterStore) *Handler {
+	return &Handler{store: s, queue: q, dlStore: dl}
 }
 
 func (h *Handler) SubmitJob(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +112,15 @@ func (h *Handler) DrainQueue(w http.ResponseWriter, r *http.Request) {
 		h.store.Update(job)
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"cancelled": len(drained)})
+}
+
+func (h *Handler) GetDeadLetterJobs(w http.ResponseWriter, r *http.Request) {
+	jobs, err := h.dlStore.List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, jobs)
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

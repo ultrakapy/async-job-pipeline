@@ -17,18 +17,13 @@ type Pool struct {
 	workers int
 	queue   queue.Queue
 	store   store.Store
+	dlStore store.DeadLetterStore
 	handler Handler
 	done    chan struct{}
 }
 
-func NewPool(size int, q queue.Queue, s store.Store, h Handler) *Pool {
-	return &Pool{
-		workers: size,
-		queue:   q,
-		store:   s,
-		handler: h,
-		done:    make(chan struct{}),
-	}
+func NewPool(size int, q queue.Queue, s store.Store, dl store.DeadLetterStore, h Handler) *Pool {
+	return &Pool{workers: size, queue: q, store: s, dlStore: dl, handler: h, done: make(chan struct{})}
 }
 
 func (p *Pool) Start() {
@@ -81,6 +76,10 @@ func (p *Pool) process(job *domain.Job) {
 		if current.Attempts >= current.MaxRetries {
 			current.Status = domain.StatusDeadLettered
 			slog.Warn("job dead-lettered", "job_id", current.ID, "attempts", current.Attempts, "err", execErr)
+			p.store.Update(current)
+			if err := p.dlStore.Add(current); err != nil {
+				slog.Error("failed to persist to dead-letter store", "job_id", current.ID, "err", err)
+			}
 		} else {
 			current.Status = domain.StatusFailed
 			backoff := time.Duration(math.Pow(2, float64(current.Attempts))) * time.Second

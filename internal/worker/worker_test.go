@@ -40,7 +40,7 @@ func TestSuccess(t *testing.T) {
 	h := func(ctx context.Context, p map[string]any) (map[string]any, error) {
 		return map[string]any{"ok": true}, nil
 	}
-	pool := worker.NewPool(1, q, st, h)
+	pool := worker.NewPool(1, q, st, store.NewDeadLetterStore(), h)
 	pool.Start()
 	defer pool.Stop()
 
@@ -61,7 +61,7 @@ func TestRetryThenSucceed(t *testing.T) {
 		}
 		return map[string]any{"ok": true}, nil
 	}
-	pool := worker.NewPool(1, q, st, h)
+	pool := worker.NewPool(1, q, st, store.NewDeadLetterStore(), h)
 	pool.Start()
 	defer pool.Stop()
 
@@ -77,7 +77,7 @@ func TestDeadLetter(t *testing.T) {
 	h := func(ctx context.Context, p map[string]any) (map[string]any, error) {
 		return nil, errors.New("always fails")
 	}
-	pool := worker.NewPool(1, q, st, h)
+	pool := worker.NewPool(1, q, st, store.NewDeadLetterStore(), h)
 	pool.Start()
 	defer pool.Stop()
 
@@ -99,7 +99,7 @@ func TestTimeout(t *testing.T) {
 			return nil, nil
 		}
 	}
-	pool := worker.NewPool(1, q, st, h)
+	pool := worker.NewPool(1, q, st, store.NewDeadLetterStore(), h)
 	pool.Start()
 	defer pool.Stop()
 

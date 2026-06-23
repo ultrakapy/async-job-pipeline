@@ -33,8 +33,9 @@ func main() {
 
 	st := store.New()
 	q := queue.New(cfg.QueueCap)
-	pool := worker.NewPool(cfg.WorkerCount, q, st, echoHandler)
-	h := api.NewHandler(st, q)
+	dl := store.NewDeadLetterStore()
+	pool := worker.NewPool(cfg.WorkerCount, q, st, dl, echoHandler)
+	h := api.NewHandler(st, q, dl)
 	router := api.NewRouter(h)
 
 	pool.Start()
