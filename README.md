@@ -72,7 +72,7 @@ For true durable at-least-once across restarts, replace `ChannelQueue` with a Re
 | `GET` | `/api/v1/queue/depth` | Current number of jobs waiting in the queue. |
 | `POST` | `/api/v1/queue/drain` | Cancel all queued jobs and empty the queue. |
 | `GET` | `/api/v1/dead-letter` | List all dead-lettered jobs. |
-| `GET` | `/health` | Health check. Returns `{"status":"ok"}`. |
+| `GET` | `/healthz` | Health check. Returns `{"status":"ok"}`. |
 
 ### Submit a job
 
@@ -130,7 +130,7 @@ Returns an array of jobs that exhausted all retries, including `last_error` and 
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.26+
 - Docker (for containerised runs and deployment)
 - `make`
 
@@ -285,6 +285,25 @@ GitHub Actions runs on every push and pull request:
 2. `go test -v -race -timeout 60s ./...` — full test suite with race detector
 3. `go build -o bin/server ./cmd/server` — verifies the binary compiles
 
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+      - run: go vet ./...
+      - run: go test -v -race -timeout 60s ./...
+      - run: go build -o bin/server ./cmd/server
+```
+
 See `.github/workflows/ci.yml`.
 
 ---
@@ -307,12 +326,40 @@ doctl apps list
 The `app.yaml` spec:
 
 - Builds from the `Dockerfile` on push to `main`
-- Exposes port `8080` with a `/health` HTTP health check
+- Exposes port `8080` with a `/healthz` HTTP health check
 - `WORKER_COUNT` and `QUEUE_CAPACITY` are runtime environment variables — adjust via the DO console or `doctl apps update` without rebuilding
+
+```yaml
+name: async-job-pipeline
+
+services:
+  - name: api
+    github:
+      repo: ultrakapy/async-job-pipeline
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 5
+    envs:
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+      - key: WORKER_COUNT
+        scope: RUN_TIME
+        value: "4"
+      - key: QUEUE_CAPACITY
+        scope: RUN_TIME
+        value: "1000"
+    instance_count: 1
+    instance_size_slug: basic-xxs
+```
 
 ### Health check
 
-The App Platform polls `GET /health` every 10 seconds (configured in `app.yaml`). The endpoint returns `{"status":"ok"}` and is always fast — it does not check downstream dependencies.
+The App Platform polls `GET /healthz` every 10 seconds (configured in `app.yaml`). The endpoint returns `{"status":"ok"}` and is always fast — it does not check downstream dependencies.
 
 ### Scaling workers independently
 
@@ -363,7 +410,7 @@ services:
 │   ├── api/
 │   │   ├── handler.go       # HTTP handlers
 │   │   ├── handler_test.go  # Integration tests (httptest)
-│   │   └── router.go        # Route registration (Go 1.22 ServeMux)
+│   │   └── router.go        # Route registration (Go 1.22+ ServeMux)
 │   ├── config/
 │   │   └── config.go        # Env-var configuration
 │   ├── domain/
@@ -382,7 +429,7 @@ services:
 │   └── workflows/
 │       └── ci.yml           # Go vet + test + build on push
 ├── app.yaml                 # DigitalOcean App Platform spec
-├── Dockerfile               # Multi-stage build
+├── Dockerfile               # Multi-stage build (golang:1.26-alpine)
 ├── Makefile
 └── README.md
 ```
