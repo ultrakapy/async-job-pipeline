@@ -121,7 +121,7 @@ func TestCancelJob(t *testing.T) {
 func TestHealth(t *testing.T) {
 	ts, done := newTestServer(t)
 	defer done()
-	r, _ := http.Get(ts.URL + "/health")
+	r, _ := http.Get(ts.URL + "/healthz")
 	if r.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", r.StatusCode)
 	}
